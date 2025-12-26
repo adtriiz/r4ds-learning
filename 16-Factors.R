@@ -37,19 +37,27 @@ ggplot(gss_cat, aes(x = relig, y = denom)) +
   geom_count()
 ## A: There are definitely cleaner ways of doing this, but pretty obvious they denom applies to Protestant
 
-by_age <- gss_cat |>
-  filter(!is.na(age)) |>
-  count(age, marital) |>
-  group_by(age) |>
-  mutate(
-    prop = n / sum(n)
-  )
-ggplot(by_age, aes(x = age, y = prop, color = marital)) +
-  geom_line(linewidth = 1) +
-  scale_color_brewer(palette = "Set1")
 
-ggplot(by_age, aes(x = age, y = prop, color = fct_reorder2(marital, age, prop))) +
-  geom_line(linewidth = 1) +
-  scale_color_brewer(palette = "Set1") +
-  labs(color = "marital")
+# Exercises #2
+## 1. There are some suspiciously high numbers in `tvhours`. Is the mean a good summary?
+### Let's look at the distribution
+ggplot(gss_cat, aes(x = tvhours)) +
+  geom_histogram(binwidth = 1)
+### There are a few values, but it given the (small) difference in scale and low
+### low numbers, this should make the mean a pretty good summary.
+### The distribution resembles more a height dist than a wealth dist
 
+## 2. For each factor in `gss_cat` identify whether the order of the levels is arbitrary or principled
+factor_columns <- gss_cat |> 
+  select(where(is.factor)) |> 
+  glimpse()
+### There are 6 factors:
+#### marital: arbitrary (?)
+#### race: arbitrary
+#### rincome: principled
+#### partyid: hybrid (?)
+#### relig: arbitrary
+#### denom: arbitrary
+
+## 3. Why did moving "Not applicable" to the front of the levels move it to the bottom of the plot?
+### Because the bottom of the plot represents the "smallest" values, therefore the first ones to appear in asc order
