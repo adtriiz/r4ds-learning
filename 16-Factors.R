@@ -61,3 +61,25 @@ factor_columns <- gss_cat |>
 
 ## 3. Why did moving "Not applicable" to the front of the levels move it to the bottom of the plot?
 ### Because the bottom of the plot represents the "smallest" values, therefore the first ones to appear in asc order
+
+# Exercises #3
+## 1. How have th proportions of peopñe identifying as Democrat, Republican, and Independent changed over time?
+### We start by collapsing the relevant groups
+### And then plotting their evolution over time
+gss_cat |>
+  mutate(
+    partyid = fct_collapse(partyid,
+       "other" = c("No answer", "Don't know", "Other party"),
+       "rep" = c("Strong republican", "Not str republican"),
+       "ind" = c("Independent", "Ind,near rep", "Ind,near dem"),
+       "dem" = c("Strong democrat", "Not str democrat")
+    )
+  ) |>
+  count(year, partyid) |> 
+  group_by(year) |> 
+  mutate(prop = n / sum(n)) |> 
+  ggplot(aes(x = year, y = prop, colour = partyid)) +
+  geom_line()
+
+## 2. How could you collapse 'income' into a small set of categories?
+
