@@ -81,5 +81,20 @@ gss_cat |>
   ggplot(aes(x = year, y = prop, colour = partyid)) +
   geom_line()
 
-## 2. How could you collapse 'income' into a small set of categories?
+## 2. How could you collapse 'rincome' into a small set of categories?
+### Collapse non-numeric values into one category
+### Use $5,000 increments
+gss_cat |> 
+  mutate(rincome =
+    fct_collapse(rincome,
+      "Unknown" = c("No answer", "Don't know","Refused", "Not applicable"),
+      "Less than $5000" = c("Lt $1000", "$1000 to 2999", "$3000 to 3999", "$4000 to 4999"),
+      "$5000 - $9999" = c("$5000 to 5999", "$6000 to 6999", "$7000 to 7999", "$8000 to 9999")
+    )
+  ) |> 
+  ggplot(aes(y = rincome)) +
+  geom_bar()
 
+## 3. Notice there are 9 groups (excluding other) in the `fct_lump` example above.
+### Why not 10?
+### Because the default is "Other", and "Other" already exists as a level so all levels from the 11th level get lumped in "Other"
