@@ -77,4 +77,138 @@ hms(t2)
 ## Seems like Lubridate helpers have limitations;
 ### Might help with simple date-times, but more complex one will require something extra
 
+# Constructing the flights_dt tibble
+make_datetime_100 <- function(year, month, day, time) {
+  make_datetime(year, month, day, time %/% 100, time %% 100)
+}
+flights_dt <- flights |> 
+  filter(!is.na(dep_time), !is.na(arr_time)) |> 
+  mutate(
+    dep_time = make_datetime_100(year, month, day, dep_time),
+    arr_time = make_datetime_100(year, month, day, arr_time),
+    sched_dep_time = make_datetime_100(year, month, day, sched_dep_time),
+    sched_arr_time = make_datetime_100(year, month, day, sched_arr_time)
+  ) |> 
+  select(origin, dest, ends_with("delay"), ends_with("time"))
 
+# VERY USEFUL: Show the distribution of flights across the course of a day
+flights_dt |>
+  mutate(dep_hour = hms::as_hms(dep_time - floor_date(dep_time, "day"))) |>
+  ggplot(aes(x = dep_hour)) +
+  geom_freqpoly(binwidth = 60 * 30)
+
+# Set of Exercises #2
+
+# 1.How does the distribution of flight times within a day change over the course of the year?
+## We have some options to observe the distribution. Let's start by comparing months
+flights_dt |> 
+  mutate(
+    dep_hour = hms::as_hms(dep_time - floor_date(dep_time, "day")),
+    dep_month = month(dep_time)
+  ) |> 
+  ggplot(aes(x = dep_hour)) + 
+  geom_freqpoly(aes(colour = as_factor(dep_month)), binwidth = 60 * 30) +
+  facet_wrap(vars(as_factor(dep_month))) +
+  theme(legend.position = "none")
+## Hard to discern anything... Let's compare the median flight time by day
+flights_dt |> 
+  mutate(
+    dep_day = as_date(dep_time),
+    dep_time_1 = hms::as_hms(dep_time),
+    dep_month = month(dep_time)
+  ) |> 
+  group_by(dep_day, dep_month) |> 
+  summarise(day_median = median(dep_time_1)) |> 
+  ungroup() |> 
+  ggplot(aes(x = dep_day, y = day_median)) +
+  geom_line(aes(colour = as.factor(dep_month)))
+## Again, nothing really to discern here
+
+# 2. Compare dep_time, sched_dep_time and dep_delay. Are they consistent? Explain your findings.
+## Compare whether the difference between both is equal to dep_delay
+flights_dt |> 
+  mutate(
+    delay = (dep_time - sched_dep_time) / dminutes(1),
+    same = delay == dep_delay,
+    difference = delay - dep_delay
+  ) |>
+  filter(abs(difference) > 0)
+## A: Mostly consistent, but for the ones that aren't, the difference is 1440 minutes, or 24 hours between all of them, which means that the departure date should have been pushed forward
+
+# 3. Compare air_time with the duration between the departure and arrival. Explain your findings. (Hint: consider the location of the airport.)
+flights_dt |> 
+  mutate(
+    computed_air_time = (arr_time - dep_time) / dminutes(1),
+    same = computed_air_time == air_time,
+    difference = computed_air_time - air_time
+  ) |> 
+  filter(abs(difference) > 0)
+## They will be very different due to timezone differences. However, I would expect them to cluster around every 60 minutes, but that does not seem to be the case at first glance.
+flights_dt |> 
+  mutate(
+    computed_air_time = (arr_time - dep_time) / dminutes(1),
+    difference = abs(computed_air_time - air_time)
+  ) |>
+  filter(abs(difference) < 500) |> # discard too high of values
+  ggplot(aes(x = difference)) +
+  geom_histogram(binwidth = 5)
+## There is a bit of clustering, but it is still too oddly distributed
+
+# 4. How does the average delay time change over the course of a day? Should you use dep_time or sched_dep_time? Why?
+## We should probably use sched_dep_time so that we know, given a scheduled departing time, what's its average delay
+flights_dt |> 
+  mutate(
+    dep_hour = hms::as_hms(floor_date(sched_dep_time, "15 minutes"))
+  ) |> 
+  group_by(dep_hour) |> 
+  summarise(avg_delay = mean(dep_delay, na.rm = TRUE)) |> 
+  ggplot(aes(x = dep_hour, y = avg_delay)) +
+  geom_line()
+# It gets worse as the day progresses - probably early delays compound on later flights
+
+# 5. On what day of the week should you leave if you want to minimise the chance of a delay?
+## We are talking chance, so let's see both the probability & delay time
+flights_dt |> 
+  mutate(
+    dep_weekday = wday(sched_dep_time, label = TRUE)
+  ) |> 
+  group_by(dep_weekday) |> 
+  summarise(
+    prop_delay = sum(dep_delay > 0) / n()
+  )
+## Least likely day is Saturday. But what about median delay?
+flights_dt |> 
+  mutate(
+    dep_weekday = wday(sched_dep_time, label = TRUE)
+  ) |> 
+  group_by(dep_weekday) |> 
+  summarise(
+    median_delay = median(dep_delay, na.rm = TRUE),
+    mean_delay = mean(dep_delay, na.rm = TRUE)
+  )
+# Same picture here - especially avoid Thursdays!
+
+# 6. What makes the distribution of diamonds$carat and flights$sched_dep_time similar?
+p1 <- ggplot(diamonds, aes(x = carat)) +
+  geom_histogram(binwidth = 0.01)
+
+p2 <- ggplot(flights_dt, aes(x = hms::as_hms(sched_dep_time))) +
+  geom_histogram(bins = 24*6)
+
+p1 + p2
+## Both have discontinuities and peaks
+
+# 7. Confirm our hypothesis that the early departures of flights in minutes 20-30 and 50-60 are caused by scheduled flights that leave early. Hint: create a binary variable that tells you whether or not a flight was delayed.
+flights_dt |> 
+  mutate(
+    minute = minute(dep_time),
+    is_delayed = dep_delay > 0
+  ) |> 
+  group_by(minute) |> 
+  summarise(
+    prop_delayed = mean(is_delayed, na.rm = TRUE)
+  ) |> 
+  ggplot(aes(x = minute, y = prop_delayed)) +
+  geom_point() +
+  geom_line()
+## I think we can confirm the hypothesis
