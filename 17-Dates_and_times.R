@@ -212,3 +212,32 @@ flights_dt |>
   geom_point() +
   geom_line()
 ## I think we can confirm the hypothesis
+
+
+# Set of Exercises #3
+
+# 1. Explain days(!overnight) and days(overnight) to someone who has just started learning R. What is the key fact you need to know?
+## A. overnight is a binary variable, where a value of means that the condition (arr_time < dep_time) is true, and 0 is false
+## Thus, given that days() returns a period corresponding to the number of days inputted, days(overnight) will return a 1 day period for the overnight flights
+## Adding the exclamation mark (!) in front inverts the condition, so it would return 1 if the condition is false
+  
+# 2. Create a vector of dates giving the first day of every month in 2015. Create a vector of dates giving the first day of every month in the current year.
+## We start with the initial point
+start_2015 <- ymd("2015-01-01")
+## Then create a vector, starting adding 0 until 11
+first_day_months_2015 <- start_2015 + months(0:11)
+
+## To get the first day of the current year:
+start_current <- today() - (day(today())+1) + (month(today())+1)
+## Then repeat what we did above
+first_day_months_current <- start_current + months(0:11)
+
+
+# 3. Write a function that given your birthday (as a date), returns how old you are in years.
+## First we register the birthday
+birthday <- ymd("1998-04-23")
+## Then create an interval between today and that day
+age_interval <- birthday %--% today()
+## And finally transform it into years
+age_years <- age_interval %/% years(1)
+age_years
